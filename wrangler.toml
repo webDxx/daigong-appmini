@@ -1,5 +1,10 @@
-name = "daigong-appmini"
-compatibility_date = "2024-01-01"
+name = "your-project-name"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "./dist"  # 指向 Vite 构建的输出目录
 
-[site]
-bucket = "./dist"
+[build]
+command = "pnpm run build"
+
+[build.upload]
+format = "directory"
+directory = "./dist"
