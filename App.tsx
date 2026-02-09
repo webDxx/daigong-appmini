@@ -8,7 +8,8 @@ import {
   Wallet, 
   Package, 
   BarChart3, 
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from 'lucide-react';
 import { loadDataFromServer } from './db';
 import { AppData } from './types';
@@ -20,6 +21,7 @@ import Orders from './pages/Orders';
 import Finance from './pages/Finance';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
+import Login from './pages/Login';
 
 const NavItem = ({ to, icon: Icon, label, active }: { to: string, icon: any, label: string, active: boolean }) => (
   <Link
@@ -38,17 +40,44 @@ const NavItem = ({ to, icon: Icon, label, active }: { to: string, icon: any, lab
 const AppLayout = () => {
   const [data, setData] = useState<AppData | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    loadDataFromServer().then(res => {
-      setData(res);
-    });
+    // 检查登录状态
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    setIsLoggedIn(loggedIn);
+    
+    if (loggedIn) {
+      loadDataFromServer().then(res => {
+        setData(res);
+      });
+    }
   }, []);
 
   const updateData = (updater: (prev: AppData) => AppData) => {
     setData(prev => prev ? updater(prev) : null);
   };
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+    loadDataFromServer().then(res => {
+      setData(res);
+    });
+  };
+
+  const handleLogout = () => {
+    if (confirm('确认退出登录吗？')) {
+      localStorage.removeItem('isLoggedIn');
+      setIsLoggedIn(false);
+      setData(null);
+    }
+  };
+
+  // 未登录显示登录页面
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   if (!data) {
     return (
@@ -69,10 +98,13 @@ const AppLayout = () => {
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-lg rotate-3 lg:w-9 lg:h-9 lg:rounded-xl">绳</div>
           <h1 className="text-base font-black text-slate-800 tracking-tight lg:text-lg">代工管理</h1>
         </div>
-        <div className="flex items-center gap-2 px-2.5 py-1 bg-slate-100 rounded-full">
-           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-           <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Online</span>
-        </div>
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-rose-50 rounded-lg transition-all group"
+        >
+          <LogOut size={12} className="text-slate-400 group-hover:text-rose-500" />
+          <span className="text-[9px] font-black text-slate-500 group-hover:text-rose-600 uppercase tracking-widest">退出</span>
+        </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -101,7 +133,7 @@ const AppLayout = () => {
         </aside>
 
         {/* 内容区 - 统一减少内边距 */}
-        <main className="flex-1 overflow-y-auto p-3 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-2 lg:p-4">
           <div className="max-w-4xl mx-auto">
             <Routes>
               <Route path="/" element={<Dashboard data={data} />} />

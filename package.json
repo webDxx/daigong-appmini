@@ -9,13 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "lucide-react": "^0.563.0",
-    "react-dom": "^19.2.4",
-    "react": "^19.2.4",
-    "react-router-dom": "^7.13.0",
     "@google/genai": "^1.39.0",
+    "@react-vant/icons": "^0.1.0",
     "@supabase/supabase-js": "^2.48.1",
     "date-fns": "^4.1.0",
+    "lucide-react": "^0.563.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.0",
+    "react-vant": "^3.3.5",
     "recharts": "^3.7.0"
   },
   "devDependencies": {

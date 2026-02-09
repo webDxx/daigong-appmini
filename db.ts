@@ -18,12 +18,16 @@ const cleanObject = (obj: any) => {
     delete newObj.id;
   }
   
+  // 移除数据库自动生成的字段
+  delete newObj.created_at; // 时间戳由数据库自动生成
+  
   // 转换数字类型
   if ('unit_price' in newObj) newObj.unit_price = Number(newObj.unit_price) || 0;
   if ('quantity' in newObj) newObj.quantity = Number(newObj.quantity) || 0;
   if ('amount' in newObj) newObj.amount = Number(newObj.amount) || 0;
   if ('quantity_change' in newObj) newObj.quantity_change = Number(newObj.quantity_change) || 0;
   if ('paid_amount' in newObj) newObj.paid_amount = Number(newObj.paid_amount) || 0;
+  if ('total_amount' in newObj) newObj.total_amount = Number(newObj.total_amount) || 0;
   
   return newObj;
 };
@@ -86,6 +90,10 @@ export const db = {
   async createOrder(order: Partial<Order>) {
     const dataToSave = cleanObject(order);
     if (!dataToSave.order_no) dataToSave.order_no = generateId('ORD');
+    // 如果没有提供 total_amount，自动计算
+    if (!dataToSave.total_amount) {
+      dataToSave.total_amount = (dataToSave.quantity || 0) * (dataToSave.unit_price || 0);
+    }
     console.group("💾 数据库操作: Create Order");
     const result = await supabase.from('orders').insert(dataToSave).select();
     console.groupEnd();
@@ -95,8 +103,12 @@ export const db = {
   async updateOrder(order: Partial<Order>) {
     const dataToSave = cleanObject(order);
     const order_no = dataToSave.order_no;
-    // 移除不应直接通过 update 更新的计算列或关联列
+    // 移除不应直接通过 update 更新的关联列
     delete dataToSave.order_payments;
+    // 如果没有提供 total_amount，自动计算
+    if (!dataToSave.total_amount && dataToSave.quantity && dataToSave.unit_price) {
+      dataToSave.total_amount = dataToSave.quantity * dataToSave.unit_price;
+    }
     console.group("💾 数据库操作: Update Order");
     const result = await supabase.from('orders').update(dataToSave).eq('order_no', order_no).select();
     console.groupEnd();
@@ -112,6 +124,14 @@ export const db = {
   async addInventoryRecord(record: Partial<InventoryTransaction>) {
     const dataToSave = cleanObject(record);
     return await supabase.from('inventory').insert(dataToSave).select();
+  },
+
+  async addIncomeRecord(income: Partial<IncomeRecord>) {
+    const dataToSave = cleanObject(income);
+    console.group("💾 数据库操作: Add Income Record");
+    const result = await supabase.from('incomes').insert(dataToSave).select();
+    console.groupEnd();
+    return result;
   }
 };
 

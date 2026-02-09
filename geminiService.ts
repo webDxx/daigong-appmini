@@ -2,7 +2,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 // 务必使用 gemini-3-flash-preview 以保证识别速度和准确性
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!ai) {
+    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("请配置 GEMINI_API_KEY 环境变量以使用 AI 识别功能");
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+};
 
 const fileToPart = async (file: File) => {
   return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
@@ -35,7 +46,7 @@ export const parseMultimodalChat = async (files: File[], chatText: string) => {
       parts.push(part);
     }
 
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ parts }],
       config: {
@@ -74,7 +85,7 @@ export const parseMultimodalTransfer = async (files: File[], transferText: strin
       parts.push(part);
     }
 
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ parts }],
       config: {

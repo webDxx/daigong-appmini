@@ -9,10 +9,9 @@ export interface Worker {
   wechat_nickname: string;
   phone: string;
   unit_price: number;
-  bank_account: string;
-  alipay_account?: string;
-  status: 'active' | 'inactive';
-  notes?: string;
+  address?: string; // 对应数据库的 address 字段
+  status: string; // 数据库是 varchar
+  specialty_type?: string; // 擅长的手绳类型：完整、主绳、线圈
   created_at?: string;
 }
 
@@ -30,19 +29,21 @@ export interface Order {
   payment_status: PaymentStatus;
   chat_record?: string;
   remarks?: string;
-  // 辅助字段（非数据库直接字段，通常通过 Join 获取）
-  paid_amount?: number; 
+  paid_amount?: number; // 数据库中已有此字段 (float8)
+  bank_card?: string; // 支付渠道：雪雪卡、中信卡、翕翕卡
+  created_at?: string;
 }
 
 export interface Transfer {
   id: number;
   worker_id: number;
   amount: number;
-  transfer_date: string;
+  transfer_date: string; // 数据库中是 timestamp，会自动转换
   payment_method: 'wechat' | 'alipay' | 'bank';
   screenshot_url?: string;
   wechat_remark?: string;
   verified: boolean;
+  created_at?: string;
 }
 
 export interface OrderPayment {
@@ -50,6 +51,7 @@ export interface OrderPayment {
   order_no: string;
   transfer_id: number;
   amount: number;
+  created_at?: string;
 }
 
 export interface InventoryTransaction {
@@ -60,6 +62,7 @@ export interface InventoryTransaction {
   balance_quantity: number;
   related_order?: string; // 对应 order_no
   remarks?: string;
+  item_type?: string; // 手绳类型：完整、主绳、线圈
   created_at?: string;
 }
 
@@ -72,6 +75,7 @@ export interface IncomeRecord {
   platform: string;
   amount: number;
   quantity: number;
+  bank_card?: string; // 收款银行卡：雪雪卡、中信卡、翕翕卡
 }
 
 export interface AppData {
