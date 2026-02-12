@@ -44,8 +44,14 @@ const AppLayout = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // 检查登录状态
-    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    // 清理旧版本的 localStorage 登录状态（迁移到 sessionStorage）
+    if (localStorage.getItem('isLoggedIn')) {
+      localStorage.removeItem('isLoggedIn');
+      console.log('已清理旧版本登录状态，请重新登录');
+    }
+    
+    // 检查登录状态（使用 sessionStorage，关闭浏览器标签页后需重新登录）
+    const loggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
     setIsLoggedIn(loggedIn);
     
     if (loggedIn) {
@@ -68,7 +74,7 @@ const AppLayout = () => {
 
   const handleLogout = () => {
     if (confirm('确认退出登录吗？')) {
-      localStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('isLoggedIn');
       setIsLoggedIn(false);
       setData(null);
     }

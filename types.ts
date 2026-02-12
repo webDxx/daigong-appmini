@@ -78,12 +78,25 @@ export interface IncomeRecord {
   bank_card?: string; // 收款银行卡：雪雪卡、中信卡、翕翕卡
 }
 
+/**
+ * 其他支出记录
+ */
+export interface ExpenseRecord {
+  id: string;
+  date: string;
+  purpose: string; // 用途
+  amount: number;
+  quantity: number;
+  bank_card?: string; // 支付银行卡：雪雪卡、中信卡、翕翕卡
+}
+
 export interface AppData {
   workers: Worker[];
   orders: Order[];
   transfers: Transfer[];
   inventory: InventoryTransaction[];
   incomes: IncomeRecord[]; // 新增：用于财务模块的收入流水
+  expenses: ExpenseRecord[]; // 新增：其他支出记录
   settings: {
     material_cost_per_unit: number;
     sale_price_per_unit: number;

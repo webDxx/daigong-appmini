@@ -20,7 +20,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     // 简单延迟模拟登录过程
     setTimeout(() => {
       if (username === 'dxx' && password === 'dxx') {
-        localStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('isLoggedIn', 'true');
         onLogin();
       } else {
         setError('账号或密码错误');

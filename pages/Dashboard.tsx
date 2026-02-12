@@ -43,7 +43,8 @@ const Dashboard: React.FC<{ data: AppData }> = ({ data }) => {
     const unpaidAmount = data.orders.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0);
     const totalRevenue = data.incomes.reduce((sum, i) => sum + i.amount, 0);
     const totalPaidExpenditure = data.orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0) + data.transfers.reduce((sum, t) => sum + t.amount, 0);
-    const actualProfit = totalRevenue - totalPaidExpenditure;
+    const totalOtherExpenses = data.expenses.reduce((sum, e) => sum + e.amount, 0);
+    const actualProfit = totalRevenue - totalPaidExpenditure - totalOtherExpenses;
 
     return { totalInventory, inTransit, unpaidAmount, actualProfit, totalRevenue };
   }, [data]);
@@ -57,16 +58,21 @@ const Dashboard: React.FC<{ data: AppData }> = ({ data }) => {
         .filter(i => i.bank_card === card)
         .reduce((sum, i) => sum + i.amount, 0);
       
-      // 支出：订单已付工费
-      const expenditure = data.orders
+      // 支出：订单已付工费 + 其他支出
+      const orderExpenditure = data.orders
         .filter(o => o.bank_card === card)
         .reduce((sum, o) => sum + (o.paid_amount || 0), 0);
       
+      const otherExpenditure = data.expenses
+        .filter(e => e.bank_card === card)
+        .reduce((sum, e) => sum + e.amount, 0);
+      
+      const expenditure = orderExpenditure + otherExpenditure;
       const balance = income - expenditure;
       
       return { card, income, expenditure, balance };
     });
-  }, [data.incomes, data.orders]);
+  }, [data.incomes, data.orders, data.expenses]);
 
   const delayedOrders = useMemo(() => {
     const today = new Date();
@@ -261,45 +267,7 @@ const Dashboard: React.FC<{ data: AppData }> = ({ data }) => {
         </div>
       </div>
 
-      {/* 银行卡进出账统计 */}
-      <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-2 border-b border-slate-50 bg-slate-50/30">
-          <h3 className="font-bold text-slate-800 text-[10px] flex items-center gap-1.5">
-            <CreditCard className="text-blue-500" size={12} />
-            银行卡进出账统计
-          </h3>
-        </div>
-        <div className="p-3">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-            {bankCardStats.map(stat => (
-              <div key={stat.card} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-black text-slate-800">{stat.card}</h4>
-                  <span className={`text-xs font-black ${stat.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {stat.balance >= 0 ? '+' : ''}¥{stat.balance.toFixed(0)}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[9px]">
-                    <span className="text-slate-400 font-bold flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                      收入
-                    </span>
-                    <span className="font-black text-emerald-600">¥{stat.income.toFixed(0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[9px]">
-                    <span className="text-slate-400 font-bold flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
-                      支出
-                    </span>
-                    <span className="font-black text-rose-600">¥{stat.expenditure.toFixed(0)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+     
     </div>
   );
 };
