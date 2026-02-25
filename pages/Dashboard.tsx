@@ -37,7 +37,7 @@ const Dashboard: React.FC<{ data: AppData }> = ({ data }) => {
   const stats = useMemo(() => {
     const totalInventory = data.inventory[data.inventory.length - 1]?.balance_quantity || 0;
     const inTransit = data.orders
-      .filter(o => ['confirmed', 'producing', 'delivered'].includes(o.order_status))
+      .filter(o => ['confirmed', 'producing', 'delivered'].includes(o.order_status) && o.remarks === '完整')
       .reduce((sum, o) => sum + o.quantity, 0);
     
     const unpaidAmount = data.orders.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0);

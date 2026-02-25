@@ -305,7 +305,7 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
     <div className="space-y-2 lg:space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-lg lg:text-xl font-black text-slate-800 tracking-tight">流水线</h2>
+          <h2 className="text-lg lg:text-xl font-black text-slate-800 tracking-tight">订单流水</h2>
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Production Pipeline</p>
         </div>
         <button 

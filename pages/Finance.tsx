@@ -312,7 +312,7 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
     <div className="space-y-2 lg:space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-lg lg:text-xl font-black text-slate-800 tracking-tight">财务账本</h2>
+          <h2 className="text-lg lg:text-xl font-black text-slate-800 tracking-tight">账单</h2>
           <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Financial Ledger</p>
         </div>
         <div className="flex gap-2">
