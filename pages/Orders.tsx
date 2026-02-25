@@ -67,10 +67,31 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
     const totalQuantity = nextWeekOrders.reduce((sum, o) => sum + o.quantity, 0);
     const uniqueWorkers = new Set(nextWeekOrders.map(o => o.worker_id));
     
+    // 按类型分别统计
+    const quantityByType = {
+      '线圈': 0,
+      '主绳': 0,
+      '完整': 0
+    };
+    
+    nextWeekOrders.forEach(o => {
+      const type = o.remarks || '完整';
+      if (type in quantityByType) {
+        quantityByType[type as keyof typeof quantityByType] += o.quantity;
+      }
+    });
+    
+    // 计算下周预计结账金额（待结费用总和）
+    const totalUnpaid = nextWeekOrders.reduce((sum, o) => {
+      return sum + (Number(o.total_amount) - (o.paid_amount || 0));
+    }, 0);
+    
     return {
       quantity: totalQuantity,
       workerCount: uniqueWorkers.size,
-      orders: nextWeekOrders
+      orders: nextWeekOrders,
+      quantityByType,
+      totalUnpaid
     };
   }, [data.orders]);
 
@@ -299,24 +320,35 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
       {/* 下周预计收货统计 */}
       {nextWeekStats.quantity > 0 && (
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-3 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <TrendingUp className="text-white" size={16} />
-              </div>
-              <div>
-                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest">下周预计收货</p>
-                <p className="text-white font-black text-base">{nextWeekStats.quantity} 条</p>
-              </div>
-            </div>
+          <div className="space-y-2.5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                 <UsersIcon className="text-white" size={16} />
               </div>
               <div>
-                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest">涉及工人</p>
+                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest">待收货工人</p>
                 <p className="text-white font-black text-base">{nextWeekStats.workerCount} 位</p>
               </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-white/10 rounded-lg p-2">
+                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">线圈</p>
+                <p className="text-white font-black text-sm">{nextWeekStats.quantityByType['线圈']} 条</p>
+              </div>
+              <div className="flex-1 bg-white/10 rounded-lg p-2">
+                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">主绳</p>
+                <p className="text-white font-black text-sm">{nextWeekStats.quantityByType['主绳']} 条</p>
+              </div>
+              <div className="flex-1 bg-white/10 rounded-lg p-2">
+                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">完整</p>
+                <p className="text-white font-black text-sm">{nextWeekStats.quantityByType['完整']} 条</p>
+              </div>
+            </div>
+            
+            <div className="bg-white/10 rounded-lg p-2">
+              <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">预计结账金额</p>
+              <p className="text-white font-black text-base">¥{nextWeekStats.totalUnpaid.toFixed(0)}</p>
             </div>
           </div>
         </div>

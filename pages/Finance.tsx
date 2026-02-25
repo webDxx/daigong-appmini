@@ -3,12 +3,27 @@ import React, { useState, useMemo } from 'react';
 import { AppData, IncomeRecord, ExpenseRecord } from '../types';
 import { db, loadDataFromServer, supabase } from '../db';
 import Pagination from '../components/Pagination';
-import { Wallet, TrendingUp, TrendingDown, Plus, X, Landmark, ArrowDownRight, ArrowUpRight, RefreshCw, Filter } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Plus, X, Landmark, ArrowDownRight, ArrowUpRight, RefreshCw, Filter, BarChart3, Edit3 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+// 渠道选项和颜色映射
+const platformOptions = ['小红书1店', '小红书2店', '微信', '个人售卖1店', '个人售卖2店', '闲鱼'];
+const platformColors: { [key: string]: string } = {
+  '小红书1店': '#ff6b6b',
+  '小红书2店': '#ee5a6f',
+  '微信': '#07c160',
+  '个人售卖1店': '#4dabf7',
+  '个人售卖2店': '#748ffc',
+  '闲鱼': '#ffa94d'
+};
 
 const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData) => void }> = ({ data, updateData }) => {
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingIncomeId, setEditingIncomeId] = useState<number | null>(null);
+  const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
   const [newIncome, setNewIncome] = useState<Partial<IncomeRecord>>({
     date: new Date().toISOString().split('T')[0],
     platform: '小红书1店',
@@ -29,6 +44,18 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
   // 筛选框展开状态
   const [showFilters, setShowFilters] = useState(false);
   
+  // 图表维度状态
+  const [chartDimension, setChartDimension] = useState<'daily' | 'monthly'>('daily');
+  
+  // 图表渠道显示状态
+  const [visiblePlatforms, setVisiblePlatforms] = useState<{ [key: string]: boolean }>(() => {
+    const initial: { [key: string]: boolean } = {};
+    platformOptions.forEach(platform => {
+      initial[platform] = true;
+    });
+    return initial;
+  });
+  
   // 筛选条件状态
   const [filters, setFilters] = useState({
     startDate: '',
@@ -37,8 +64,6 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
     maxAmount: '',
     platform: ''
   });
-
-  const platformOptions = ['小红书1店', '小红书2店', '微信', '个人售卖1店', '个人售卖2店', '闲鱼'];
 
   const totalExpenditure = useMemo(() => {
     const orderPaid = data.orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0);
@@ -86,6 +111,42 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
     return data.expenses.slice(startIndex, endIndex);
   }, [data.expenses, currentPage, itemsPerPage]);
 
+  // 图表数据处理
+  const chartData = useMemo(() => {
+    if (chartDimension === 'daily') {
+      // 按日期分组
+      const dailyData: { [key: string]: any } = {};
+      
+      filteredIncomes.forEach(income => {
+        if (!dailyData[income.date]) {
+          dailyData[income.date] = { date: income.date };
+          platformOptions.forEach(platform => {
+            dailyData[income.date][platform] = 0;
+          });
+        }
+        dailyData[income.date][income.platform] = (dailyData[income.date][income.platform] || 0) + income.amount;
+      });
+      
+      return Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
+    } else {
+      // 按月份分组
+      const monthlyData: { [key: string]: any } = {};
+      
+      filteredIncomes.forEach(income => {
+        const month = income.date.substring(0, 7); // YYYY-MM
+        if (!monthlyData[month]) {
+          monthlyData[month] = { month };
+          platformOptions.forEach(platform => {
+            monthlyData[month][platform] = 0;
+          });
+        }
+        monthlyData[month][income.platform] = (monthlyData[month][income.platform] || 0) + income.amount;
+      });
+      
+      return Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
+    }
+  }, [filteredIncomes, chartDimension]);
+
   const handleSaveIncome = async () => {
     if (!newIncome.amount || !newIncome.quantity) {
       alert("请填写金额和数量");
@@ -94,43 +155,60 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
     
     setIsSaving(true);
     try {
-      // 1. 保存收入记录到数据库
-      const incomeResult = await db.addIncomeRecord({
-        date: newIncome.date,
-        platform: newIncome.platform,
-        amount: newIncome.amount,
-        quantity: newIncome.quantity
-      });
-      
-      if (incomeResult.error) {
-        console.error("保存收入记录失败:", incomeResult.error);
-        throw incomeResult.error;
-      }
+      if (isEditMode && editingIncomeId) {
+        // 编辑模式：更新记录
+        const { error } = await supabase
+          .from('incomes')
+          .update({
+            date: newIncome.date,
+            platform: newIncome.platform,
+            amount: newIncome.amount,
+            quantity: newIncome.quantity,
+            bank_card: newIncome.bank_card
+          })
+          .eq('id', editingIncomeId);
+        
+        if (error) throw error;
+      } else {
+        // 新增模式
+        // 1. 保存收入记录到数据库
+        const incomeResult = await db.addIncomeRecord({
+          date: newIncome.date,
+          platform: newIncome.platform,
+          amount: newIncome.amount,
+          quantity: newIncome.quantity
+        });
+        
+        if (incomeResult.error) {
+          console.error("保存收入记录失败:", incomeResult.error);
+          throw incomeResult.error;
+        }
 
-      // 2. 获取"完整"类型的最新库存余额并创建出库记录（销售只能出库完整手绳）
-      const { data: latestInventory } = await supabase
-        .from('inventory')
-        .select('balance_quantity, item_type')
-        .eq('item_type', '完整')
-        .order('id', { ascending: false })
-        .limit(1);
-      
-      const lastBalance = latestInventory && latestInventory.length > 0
-        ? latestInventory[0].balance_quantity
-        : 0;
+        // 2. 获取"完整"类型的最新库存余额并创建出库记录（销售只能出库完整手绳）
+        const { data: latestInventory } = await supabase
+          .from('inventory')
+          .select('balance_quantity, item_type')
+          .eq('item_type', '完整')
+          .order('id', { ascending: false })
+          .limit(1);
+        
+        const lastBalance = latestInventory && latestInventory.length > 0
+          ? latestInventory[0].balance_quantity
+          : 0;
 
-      const inventoryResult = await db.addInventoryRecord({
-        transaction_date: newIncome.date,
-        transaction_type: 'out',
-        quantity_change: -Math.abs(newIncome.quantity),
-        balance_quantity: lastBalance - Math.abs(newIncome.quantity),
-        item_type: '完整',
-        remarks: `销售出库: ${newIncome.platform}`
-      });
+        const inventoryResult = await db.addInventoryRecord({
+          transaction_date: newIncome.date,
+          transaction_type: 'out',
+          quantity_change: -Math.abs(newIncome.quantity),
+          balance_quantity: lastBalance - Math.abs(newIncome.quantity),
+          item_type: '完整',
+          remarks: `销售出库: ${newIncome.platform}`
+        });
 
-      if (inventoryResult.error) {
-        console.error("创建库存记录失败:", inventoryResult.error);
-        throw inventoryResult.error;
+        if (inventoryResult.error) {
+          console.error("创建库存记录失败:", inventoryResult.error);
+          throw inventoryResult.error;
+        }
       }
 
       // 3. 刷新全局数据
@@ -138,10 +216,10 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
       updateData(() => freshData);
       
       console.log("✅ 收入记录保存成功");
-      console.log("📦 最新库存余额:", freshData.inventory[freshData.inventory.length - 1]?.balance_quantity || 0);
-      console.log("💰 最新收入记录数:", freshData.incomes.length);
       
       setShowIncomeModal(false);
+      setIsEditMode(false);
+      setEditingIncomeId(null);
       setNewIncome({
         date: new Date().toISOString().split('T')[0],
         platform: '小红书1店',
@@ -163,17 +241,34 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
     
     setIsSaving(true);
     try {
-      const expenseResult = await db.addExpenseRecord({
-        date: newExpense.date,
-        purpose: newExpense.purpose,
-        amount: newExpense.amount,
-        quantity: newExpense.quantity,
-        bank_card: newExpense.bank_card
-      });
-      
-      if (expenseResult.error) {
-        console.error("保存支出记录失败:", expenseResult.error);
-        throw expenseResult.error;
+      if (isEditMode && editingExpenseId) {
+        // 编辑模式：更新记录
+        const { error } = await supabase
+          .from('expenses')
+          .update({
+            date: newExpense.date,
+            purpose: newExpense.purpose,
+            amount: newExpense.amount,
+            quantity: newExpense.quantity,
+            bank_card: newExpense.bank_card
+          })
+          .eq('id', editingExpenseId);
+        
+        if (error) throw error;
+      } else {
+        // 新增模式
+        const expenseResult = await db.addExpenseRecord({
+          date: newExpense.date,
+          purpose: newExpense.purpose,
+          amount: newExpense.amount,
+          quantity: newExpense.quantity,
+          bank_card: newExpense.bank_card
+        });
+        
+        if (expenseResult.error) {
+          console.error("保存支出记录失败:", expenseResult.error);
+          throw expenseResult.error;
+        }
       }
 
       const freshData = await loadDataFromServer();
@@ -182,6 +277,8 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
       console.log("✅ 支出记录保存成功");
       
       setShowExpenseModal(false);
+      setIsEditMode(false);
+      setEditingExpenseId(null);
       setNewExpense({
         date: new Date().toISOString().split('T')[0],
         bank_card: '雪雪卡'
@@ -194,6 +291,23 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
     }
   };
 
+  // 切换渠道显示状态
+  const togglePlatformVisibility = (platform: string) => {
+    setVisiblePlatforms(prev => ({
+      ...prev,
+      [platform]: !prev[platform]
+    }));
+  };
+
+  // 全部显示/隐藏
+  const toggleAllPlatforms = (show: boolean) => {
+    const newState: { [key: string]: boolean } = {};
+    platformOptions.forEach(platform => {
+      newState[platform] = show;
+    });
+    setVisiblePlatforms(newState);
+  };
+
   return (
     <div className="space-y-2 lg:space-y-4">
       <div className="flex justify-between items-center">
@@ -203,14 +317,31 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={() => setShowExpenseModal(true)}
+            onClick={() => {
+              setIsEditMode(false);
+              setEditingExpenseId(null);
+              setNewExpense({
+                date: new Date().toISOString().split('T')[0],
+                bank_card: '雪雪卡'
+              });
+              setShowExpenseModal(true);
+            }}
             className="flex items-center gap-1.5 px-3 py-2 bg-rose-600 text-white rounded-lg font-bold shadow-lg text-xs active:scale-95 transition-all"
           >
             <Plus size={14} />
             记一笔支出
           </button>
           <button 
-            onClick={() => setShowIncomeModal(true)}
+            onClick={() => {
+              setIsEditMode(false);
+              setEditingIncomeId(null);
+              setNewIncome({
+                date: new Date().toISOString().split('T')[0],
+                platform: '小红书1店',
+                bank_card: '雪雪卡'
+              });
+              setShowIncomeModal(true);
+            }}
             className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow-lg text-xs active:scale-95 transition-all"
           >
             <Plus size={14} />
@@ -368,17 +499,153 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
               </div>
             )}
 
+            {/* 折线图展示 */}
+            <div className="bg-white rounded-lg border border-slate-100 shadow-sm p-4 mb-2">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 size={16} className="text-emerald-600" />
+                  <h3 className="text-sm font-black text-slate-800">销售趋势</h3>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setChartDimension('daily')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      chartDimension === 'daily'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    每日
+                  </button>
+                  <button
+                    onClick={() => setChartDimension('monthly')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      chartDimension === 'monthly'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    每月
+                  </button>
+                </div>
+              </div>
+              
+              {/* 渠道选择器 */}
+              <div className="mb-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">渠道筛选</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => toggleAllPlatforms(true)}
+                      className="text-[9px] font-bold text-emerald-600 hover:text-emerald-700 px-2 py-0.5 rounded hover:bg-emerald-50 transition-colors"
+                    >
+                      全选
+                    </button>
+                    <button
+                      onClick={() => toggleAllPlatforms(false)}
+                      className="text-[9px] font-bold text-slate-400 hover:text-slate-600 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors"
+                    >
+                      清空
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {platformOptions.map(platform => (
+                    <button
+                      key={platform}
+                      onClick={() => togglePlatformVisibility(platform)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                        visiblePlatforms[platform]
+                          ? 'text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-400'
+                      }`}
+                      style={{
+                        backgroundColor: visiblePlatforms[platform] ? platformColors[platform] : undefined
+                      }}
+                    >
+                      {platform}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis 
+                      dataKey={chartDimension === 'daily' ? 'date' : 'month'} 
+                      tick={{ fontSize: 10, fill: '#64748b' }}
+                      stroke="#cbd5e1"
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 10, fill: '#64748b' }}
+                      stroke="#cbd5e1"
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        fontSize: 11, 
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ fontSize: 10 }}
+                      onClick={(e) => {
+                        if (e.dataKey) {
+                          togglePlatformVisibility(e.dataKey as string);
+                        }
+                      }}
+                    />
+                    {platformOptions.map(platform => (
+                      visiblePlatforms[platform] && (
+                        <Line
+                          key={platform}
+                          type="monotone"
+                          dataKey={platform}
+                          stroke={platformColors[platform]}
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          activeDot={{ r: 5 }}
+                          name={platform}
+                        />
+                      )
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-slate-300 text-[10px] font-bold uppercase tracking-widest">
+                  暂无数据
+                </div>
+              )}
+            </div>
+
             <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
               <div className="space-y-1.5 p-2">
                 {paginatedIncomes.map(item => (
                   <div key={item.id} className="bg-white p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
-                    <div>
+                    <div className="flex-1">
                       <div className="font-bold text-slate-800 text-xs">{item.platform}</div>
                       <div className="text-[9px] text-slate-400 font-mono">{item.date}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-black text-emerald-600 text-sm">+¥{item.amount.toLocaleString()}</div>
-                      <div className="text-[9px] font-bold text-slate-300">出货 {item.quantity} 条</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="font-black text-emerald-600 text-sm">+¥{item.amount.toLocaleString()}</div>
+                        <div className="text-[9px] font-bold text-slate-300">出货 {item.quantity} 条</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setNewIncome(item);
+                          setIsEditMode(true);
+                          setEditingIncomeId(item.id);
+                          setShowIncomeModal(true);
+                        }}
+                        className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        <Edit3 size={13} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -401,13 +668,26 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
             <div className="space-y-1.5 p-2">
               {paginatedExpenses.map(item => (
                 <div key={item.id} className="bg-white p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <div className="font-bold text-slate-800 text-xs">{item.purpose}</div>
                     <div className="text-[9px] text-slate-400 font-mono">{item.date}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-black text-rose-600 text-sm">-¥{item.amount.toLocaleString()}</div>
-                    <div className="text-[9px] font-bold text-slate-300">数量 {item.quantity}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="font-black text-rose-600 text-sm">-¥{item.amount.toLocaleString()}</div>
+                      <div className="text-[9px] font-bold text-slate-300">数量 {item.quantity}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setNewExpense(item);
+                        setIsEditMode(true);
+                        setEditingExpenseId(item.id);
+                        setShowExpenseModal(true);
+                      }}
+                      className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    >
+                      <Edit3 size={13} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -429,8 +709,17 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
         <div className="fixed inset-0 z-[100] flex items-end lg:items-center justify-center p-0 lg:p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-t-[1.5rem] lg:rounded-[1.5rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-20 duration-500">
             <div className="p-3.5 border-b border-slate-50 flex items-center justify-between">
-              <h3 className="text-sm font-black text-slate-800">记一笔营收</h3>
-              <button onClick={() => setShowIncomeModal(false)}><X size={18} className="text-slate-300" /></button>
+              <h3 className="text-sm font-black text-slate-800">{isEditMode ? '修改收入记录' : '记一笔营收'}</h3>
+              <button onClick={() => {
+                setShowIncomeModal(false);
+                setIsEditMode(false);
+                setEditingIncomeId(null);
+                setNewIncome({
+                  date: new Date().toISOString().split('T')[0],
+                  platform: '小红书1店',
+                  bank_card: '雪雪卡'
+                });
+              }}><X size={18} className="text-slate-300" /></button>
             </div>
             <div className="p-3.5 space-y-3">
               <div className="space-y-0.5">
@@ -482,13 +771,22 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
               </div>
             </div>
             <div className="p-3.5 bg-slate-50 flex gap-2.5">
-              <button onClick={() => setShowIncomeModal(false)} className="flex-1 text-xs font-bold text-slate-400">取消</button>
+              <button onClick={() => {
+                setShowIncomeModal(false);
+                setIsEditMode(false);
+                setEditingIncomeId(null);
+                setNewIncome({
+                  date: new Date().toISOString().split('T')[0],
+                  platform: '小红书1店',
+                  bank_card: '雪雪卡'
+                });
+              }} className="flex-1 text-xs font-bold text-slate-400">取消</button>
               <button 
                 onClick={handleSaveIncome} 
                 disabled={isSaving}
                 className="flex-[2] py-2.5 bg-emerald-600 text-white text-xs font-black rounded-lg shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {isSaving ? <><RefreshCw className="animate-spin" size={12} /> 保存中...</> : '入库并记账'}
+                {isSaving ? <><RefreshCw className="animate-spin" size={12} /> 保存中...</> : (isEditMode ? '保存修改' : '入库并记账')}
               </button>
             </div>
           </div>
@@ -499,8 +797,16 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
         <div className="fixed inset-0 z-[100] flex items-end lg:items-center justify-center p-0 lg:p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-t-[1.5rem] lg:rounded-[1.5rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-20 duration-500">
             <div className="p-3.5 border-b border-slate-50 flex items-center justify-between">
-              <h3 className="text-sm font-black text-slate-800">记一笔支出</h3>
-              <button onClick={() => setShowExpenseModal(false)}><X size={18} className="text-slate-300" /></button>
+              <h3 className="text-sm font-black text-slate-800">{isEditMode ? '修改支出记录' : '记一笔支出'}</h3>
+              <button onClick={() => {
+                setShowExpenseModal(false);
+                setIsEditMode(false);
+                setEditingExpenseId(null);
+                setNewExpense({
+                  date: new Date().toISOString().split('T')[0],
+                  bank_card: '雪雪卡'
+                });
+              }}><X size={18} className="text-slate-300" /></button>
             </div>
             <div className="p-3.5 space-y-3">
               <div className="space-y-0.5">
@@ -560,13 +866,21 @@ const Finance: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
               </div>
             </div>
             <div className="p-3.5 bg-slate-50 flex gap-2.5">
-              <button onClick={() => setShowExpenseModal(false)} className="flex-1 text-xs font-bold text-slate-400">取消</button>
+              <button onClick={() => {
+                setShowExpenseModal(false);
+                setIsEditMode(false);
+                setEditingExpenseId(null);
+                setNewExpense({
+                  date: new Date().toISOString().split('T')[0],
+                  bank_card: '雪雪卡'
+                });
+              }} className="flex-1 text-xs font-bold text-slate-400">取消</button>
               <button 
                 onClick={handleSaveExpense} 
                 disabled={isSaving}
                 className="flex-[2] py-2.5 bg-rose-600 text-white text-xs font-black rounded-lg shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {isSaving ? <><RefreshCw className="animate-spin" size={12} /> 保存中...</> : '保存支出'}
+                {isSaving ? <><RefreshCw className="animate-spin" size={12} /> 保存中...</> : (isEditMode ? '保存修改' : '保存支出')}
               </button>
             </div>
           </div>

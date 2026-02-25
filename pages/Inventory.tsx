@@ -150,7 +150,7 @@ const Inventory: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppD
             <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-0.5">线圈</p>
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-black text-blue-700">{inventoryBreakdown.coil}</span>
-              <span className="text-[9px] font-bold text-blue-400">条</span>
+              <span className="text-[9px] font-bold text-blue-400">个</span>
             </div>
           </div>
         </div>
