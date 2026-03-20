@@ -9,7 +9,9 @@ import {
   Package, 
   BarChart3, 
   RefreshCw,
-  LogOut
+  LogOut,
+  Tv,
+  DollarSign
 } from 'lucide-react';
 import { loadDataFromServer } from './db';
 import { AppData } from './types';
@@ -22,6 +24,8 @@ import Finance from './pages/Finance';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Login from './pages/Login';
+import Anchors from './pages/Anchors';
+import AnchorSalary from './pages/AnchorSalary';
 
 const NavItem = ({ to, icon: Icon, label, active }: { to: string, icon: any, label: string, active: boolean }) => (
   <Link
@@ -135,6 +139,12 @@ const AppLayout = () => {
              <Link to="/reports" className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${location.pathname === '/reports' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-100'}`}>
                <BarChart3 size={18} /><span className="font-bold text-sm">统计报表</span>
              </Link>
+             <Link to="/anchors" className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${location.pathname === '/anchors' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-100'}`}>
+               <Tv size={18} /><span className="font-bold text-sm">主播管理</span>
+             </Link>
+             <Link to="/anchor-salary" className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${location.pathname === '/anchor-salary' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-100'}`}>
+               <DollarSign size={18} /><span className="font-bold text-sm">主播工资</span>
+             </Link>
           </nav>
         </aside>
 
@@ -148,6 +158,8 @@ const AppLayout = () => {
               <Route path="/finance" element={<Finance data={data} updateData={updateData} />} />
               <Route path="/inventory" element={<Inventory data={data} updateData={updateData} />} />
               <Route path="/reports" element={<Reports data={data} />} />
+              <Route path="/anchors" element={<Anchors data={data} updateData={updateData} />} />
+              <Route path="/anchor-salary" element={<AnchorSalary data={data} updateData={updateData} />} />
             </Routes>
           </div>
         </main>

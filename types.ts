@@ -90,6 +90,32 @@ export interface ExpenseRecord {
   bank_card?: string; // 支付银行卡：雪雪卡、中信卡、翕翕卡
 }
 
+/**
+ * 主播信息
+ */
+export interface Anchor {
+  id: number;
+  name: string;
+  phone: string;
+  age?: number;
+  address?: string;
+  created_at?: string;
+}
+
+/**
+ * 主播直播记录
+ */
+export interface LiveSession {
+  id: number;
+  anchor_id: number;
+  live_date: string;
+  shift?: 'day' | 'night'; // 班次：白班/晚班
+  duration_hours: number; // 直播时长（小时）
+  gmv: number; // 直播GMV
+  offline_sales: number; // 线下售卖金额
+  created_at?: string;
+}
+
 export interface AppData {
   workers: Worker[];
   orders: Order[];
@@ -97,6 +123,8 @@ export interface AppData {
   inventory: InventoryTransaction[];
   incomes: IncomeRecord[]; // 新增：用于财务模块的收入流水
   expenses: ExpenseRecord[]; // 新增：其他支出记录
+  anchors: Anchor[]; // 主播信息
+  liveSessions: LiveSession[]; // 直播记录
   settings: {
     material_cost_per_unit: number;
     sale_price_per_unit: number;

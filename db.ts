@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { AppData, Worker, Order, Transfer, InventoryTransaction, IncomeRecord, ExpenseRecord } from './types';
+import { AppData, Worker, Order, Transfer, InventoryTransaction, IncomeRecord, ExpenseRecord, Anchor, LiveSession } from './types';
 
 const SUPABASE_URL = 'https://nckbudymjczjbrvhavxa.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ja2J1ZHltamN6amJydmhhdnhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNTgwODIsImV4cCI6MjA4NTczNDA4Mn0.UHnc5j7uHrrtQggX4ro6P8p3RcM5nW_R9XBv_54chck';
@@ -46,18 +46,22 @@ export const loadDataFromServer = async (): Promise<AppData> => {
       { data: transfers, error: tErr },
       { data: inventory, error: iErr },
       { data: incomes, error: incErr },
-      { data: expenses, error: expErr }
+      { data: expenses, error: expErr },
+      { data: anchors, error: ancErr },
+      { data: liveSessions, error: liveErr }
     ] = await Promise.all([
       supabase.from('workers').select('*').order('id', { ascending: true }),
       supabase.from('orders').select('*, order_payments(amount)').order('order_date', { ascending: false }),
       supabase.from('transfers').select('*').order('transfer_date', { ascending: false }),
       supabase.from('inventory').select('*').order('id', { ascending: true }),
       supabase.from('incomes').select('*').order('date', { ascending: false }),
-      supabase.from('expenses').select('*').order('date', { ascending: false })
+      supabase.from('expenses').select('*').order('date', { ascending: false }),
+      supabase.from('anchors').select('*').order('id', { ascending: true }),
+      supabase.from('live_sessions').select('*').order('live_date', { ascending: false })
     ]);
 
-    if (wErr || oErr || tErr || iErr || incErr || expErr) {
-      console.error("【数据库查询失败】", { wErr, oErr, tErr, iErr, incErr, expErr });
+    if (wErr || oErr || tErr || iErr || incErr || expErr || ancErr || liveErr) {
+      console.error("【数据库查询失败】", { wErr, oErr, tErr, iErr, incErr, expErr, ancErr, liveErr });
     }
 
     const processedOrders = (orders || []).map(o => ({
@@ -73,11 +77,13 @@ export const loadDataFromServer = async (): Promise<AppData> => {
       inventory: inventory || [],
       incomes: incomes || [],
       expenses: expenses || [],
+      anchors: anchors || [],
+      liveSessions: liveSessions || [],
       settings: { material_cost_per_unit: 2.0, sale_price_per_unit: 15.0 }
     };
   } catch (e) {
     console.error("数据库加载异常:", e);
-    return { workers: [], orders: [], transfers: [], inventory: [], incomes: [], expenses: [], settings: { material_cost_per_unit: 2, sale_price_per_unit: 15 } };
+    return { workers: [], orders: [], transfers: [], inventory: [], incomes: [], expenses: [], anchors: [], liveSessions: [], settings: { material_cost_per_unit: 2, sale_price_per_unit: 15 } };
   }
 };
 
@@ -141,6 +147,46 @@ export const db = {
     const dataToSave = cleanObject(expense);
     console.group("💾 数据库操作: Add Expense Record");
     const result = await supabase.from('expenses').insert(dataToSave).select();
+    console.groupEnd();
+    return result;
+  },
+
+  async upsertAnchor(anchor: Partial<Anchor>) {
+    const dataToSave = cleanObject(anchor);
+    console.group("💾 数据库操作: Upsert Anchor");
+    const result = await supabase.from('anchors').upsert(dataToSave).select();
+    console.groupEnd();
+    return result;
+  },
+
+  async deleteAnchor(id: number) {
+    console.group("💾 数据库操作: Delete Anchor");
+    const result = await supabase.from('anchors').delete().eq('id', id);
+    console.groupEnd();
+    return result;
+  },
+
+  async addLiveSession(session: Partial<LiveSession>) {
+    const dataToSave = cleanObject(session);
+    console.group("💾 数据库操作: Add Live Session");
+    const result = await supabase.from('live_sessions').insert(dataToSave).select();
+    console.groupEnd();
+    return result;
+  },
+
+  async updateLiveSession(session: Partial<LiveSession>) {
+    const dataToSave = cleanObject(session);
+    const id = dataToSave.id;
+    delete dataToSave.id;
+    console.group("💾 数据库操作: Update Live Session");
+    const result = await supabase.from('live_sessions').update(dataToSave).eq('id', id).select();
+    console.groupEnd();
+    return result;
+  },
+
+  async deleteLiveSession(id: number) {
+    console.group("💾 数据库操作: Delete Live Session");
+    const result = await supabase.from('live_sessions').delete().eq('id', id);
     console.groupEnd();
     return result;
   }

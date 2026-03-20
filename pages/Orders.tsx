@@ -53,19 +53,15 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
 
   const [newOrder, setNewOrder] = useState<Partial<Order>>(initialOrder);
 
-  // 计算下周预计收货统计
-  const nextWeekStats = useMemo(() => {
-    const today = new Date();
-    const nextWeekEnd = new Date(today.getTime() + 7 * 86400000);
-    
-    const nextWeekOrders = data.orders.filter(o => {
-      if (!o.expected_delivery || o.order_status === 'received' || o.order_status === 'completed') return false;
-      const deliveryDate = new Date(o.expected_delivery);
-      return deliveryDate >= today && deliveryDate <= nextWeekEnd;
+  // 计算待收货统计（未完成的订单）
+  const pendingStats = useMemo(() => {
+    const pendingOrders = data.orders.filter(o => {
+      // 只统计未完成的订单（不包括 received 和 completed 状态）
+      return o.order_status !== 'received' && o.order_status !== 'completed' && o.order_status !== 'cancelled';
     });
     
-    const totalQuantity = nextWeekOrders.reduce((sum, o) => sum + o.quantity, 0);
-    const uniqueWorkers = new Set(nextWeekOrders.map(o => o.worker_id));
+    const totalQuantity = pendingOrders.reduce((sum, o) => sum + o.quantity, 0);
+    const uniqueWorkers = new Set(pendingOrders.map(o => o.worker_id));
     
     // 按类型分别统计
     const quantityByType = {
@@ -74,22 +70,22 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
       '完整': 0
     };
     
-    nextWeekOrders.forEach(o => {
+    pendingOrders.forEach(o => {
       const type = o.remarks || '完整';
       if (type in quantityByType) {
         quantityByType[type as keyof typeof quantityByType] += o.quantity;
       }
     });
     
-    // 计算下周预计结账金额（待结费用总和）
-    const totalUnpaid = nextWeekOrders.reduce((sum, o) => {
+    // 计算待结账金额（待结费用总和）
+    const totalUnpaid = pendingOrders.reduce((sum, o) => {
       return sum + (Number(o.total_amount) - (o.paid_amount || 0));
     }, 0);
     
     return {
       quantity: totalQuantity,
       workerCount: uniqueWorkers.size,
-      orders: nextWeekOrders,
+      orders: pendingOrders,
       quantityByType,
       totalUnpaid
     };
@@ -317,8 +313,8 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
         </button>
       </div>
 
-      {/* 下周预计收货统计 */}
-      {nextWeekStats.quantity > 0 && (
+      {/* 待收货统计 */}
+      {pendingStats.quantity > 0 && (
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-3 rounded-lg shadow-lg">
           <div className="space-y-2.5">
             <div className="flex items-center gap-2">
@@ -326,29 +322,29 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
                 <UsersIcon className="text-white" size={16} />
               </div>
               <div>
-                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest">待收货工人</p>
-                <p className="text-white font-black text-base">{nextWeekStats.workerCount} 位</p>
+                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest">待收货订单</p>
+                <p className="text-white font-black text-base">{pendingStats.workerCount} 位工人</p>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-white/10 rounded-lg p-2">
                 <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">线圈</p>
-                <p className="text-white font-black text-sm">{nextWeekStats.quantityByType['线圈']} 条</p>
+                <p className="text-white font-black text-sm">{pendingStats.quantityByType['线圈']} 条</p>
               </div>
               <div className="flex-1 bg-white/10 rounded-lg p-2">
                 <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">主绳</p>
-                <p className="text-white font-black text-sm">{nextWeekStats.quantityByType['主绳']} 条</p>
+                <p className="text-white font-black text-sm">{pendingStats.quantityByType['主绳']} 条</p>
               </div>
               <div className="flex-1 bg-white/10 rounded-lg p-2">
                 <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">完整</p>
-                <p className="text-white font-black text-sm">{nextWeekStats.quantityByType['完整']} 条</p>
+                <p className="text-white font-black text-sm">{pendingStats.quantityByType['完整']} 条</p>
               </div>
             </div>
             
             <div className="bg-white/10 rounded-lg p-2">
               <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest mb-0.5">预计结账金额</p>
-              <p className="text-white font-black text-base">¥{nextWeekStats.totalUnpaid.toFixed(0)}</p>
+              <p className="text-white font-black text-base">¥{pendingStats.totalUnpaid.toFixed(0)}</p>
             </div>
           </div>
         </div>
@@ -461,8 +457,12 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
       <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
         <div className="space-y-2 p-2">
           {paginatedOrders.length > 0 ? paginatedOrders.map(order => {
+          // 判断是否是待收货订单（未完成）
+          const isPending = order.order_status !== 'received' && order.order_status !== 'completed' && order.order_status !== 'cancelled';
+          
+          // 判断是否下周交付（用于标签显示）
           const isNextWeek = (() => {
-            if (!order.expected_delivery || order.order_status === 'received') return false;
+            if (!order.expected_delivery || !isPending) return false;
             const today = new Date();
             const nextWeekEnd = new Date(today.getTime() + 7 * 86400000);
             const deliveryDate = new Date(order.expected_delivery);
@@ -470,17 +470,17 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
           })();
           
           return (
-          <div key={order.order_no} className={`bg-white p-2.5 rounded-lg border transition-all ${order.order_status === 'received' ? 'border-slate-100 opacity-60' : isNextWeek ? 'border-blue-300 shadow-md ring-1 ring-blue-100' : 'border-blue-100 shadow-sm'}`}>
+          <div key={order.order_no} className={`bg-white p-2.5 rounded-lg border transition-all ${!isPending ? 'border-slate-100 opacity-60' : 'border-blue-300 shadow-md ring-1 ring-blue-100'}`}>
             <div className="flex justify-between items-start mb-1.5">
               <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${order.order_status === 'received' ? 'bg-slate-300' : isNextWeek ? 'bg-blue-500 animate-pulse' : 'bg-blue-500 animate-pulse'}`}></div>
+                <div className={`w-1.5 h-1.5 rounded-full ${!isPending ? 'bg-slate-300' : 'bg-blue-500 animate-pulse'}`}></div>
                 <span className="text-[11px] font-black text-slate-800">
                   {data.workers.find(w => w.id === order.worker_id)?.name || '未知工人'}
                 </span>
-                {order.order_status === 'received' && (
+                {!isPending && (
                   <span className="text-[7px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">已完成</span>
                 )}
-                {isNextWeek && order.order_status !== 'received' && (
+                {isNextWeek && isPending && (
                   <span className="text-[7px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">下周交付</span>
                 )}
               </div>
@@ -508,7 +508,7 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
               </div>
               <div className="flex flex-col text-right">
                 <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">待结费用</span>
-                <span className={`text-sm font-black ${order.order_status === 'received' ? 'text-slate-400' : 'text-rose-500'}`}>
+                <span className={`text-sm font-black ${!isPending ? 'text-slate-400' : 'text-rose-500'}`}>
                   ¥{(Number(order.total_amount) - (order.paid_amount || 0)).toFixed(0)}
                 </span>
               </div>
@@ -520,13 +520,13 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
                     <Clock size={9} />
                     <span>下单: {order.order_date}</span>
                  </div>
-                 {order.order_status !== 'received' && order.expected_delivery && (
+                 {isPending && order.expected_delivery && (
                     <div className="flex items-center gap-1 text-[8px] font-bold text-blue-500">
                        <Calendar size={9} />
                        <span>预计: {order.expected_delivery}</span>
                     </div>
                  )}
-                 {order.order_status === 'received' && order.receive_date && (
+                 {!isPending && order.receive_date && (
                     <div className="flex items-center gap-1 text-[8px] font-bold text-emerald-500">
                        <CheckCircle2 size={9} />
                        <span>交付: {order.receive_date}</span>
@@ -553,7 +553,7 @@ const Orders: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData
                     <Trash2 size={13} />
                   )}
                 </button>
-                {order.order_status !== 'received' && (
+                {isPending && (
                   <button 
                     disabled={statusUpdatingNo === order.order_no || deletingNo === order.order_no}
                     onClick={() => handleStatusUpdate(order, 'received')}
