@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { AppData, Anchor } from '../types';
 import { db } from '../db';
 import Pagination from '../components/Pagination';
-import { Plus, Search, Edit2, Phone, Trash2, User, X, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Edit2, Phone, Trash2, X, ShieldAlert, DollarSign } from 'lucide-react';
 
 const Anchors: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppData) => void }> = ({ data, updateData }) => {
   const [showModal, setShowModal] = useState(false);
@@ -87,18 +88,27 @@ const Anchors: React.FC<{ data: AppData; updateData: (fn: (d: AppData) => AppDat
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-lg lg:text-xl font-black text-slate-800 tracking-tight">主播管理</h2>
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Anchor Management</p>
         </div>
-        <button 
-          onClick={() => { setDebugError(null); setCurrentAnchor({}); setShowModal(true); }}
-          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold shadow-lg text-xs active:scale-95 transition-all"
-        >
-          <Plus size={12} />
-          添加主播
-        </button>
+        <div className="flex items-center gap-1.5">
+          <Link
+            to="/anchor-salary"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg font-bold shadow-md text-[10px] active:scale-95 transition-all"
+          >
+            <DollarSign size={11} />
+            工资计算
+          </Link>
+          <button
+            onClick={() => { setDebugError(null); setCurrentAnchor({}); setShowModal(true); }}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg font-bold shadow-lg text-[10px] active:scale-95 transition-all"
+          >
+            <Plus size={11} />
+            添加主播
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2">

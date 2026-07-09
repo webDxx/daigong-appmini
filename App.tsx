@@ -165,13 +165,14 @@ const AppLayout = () => {
         </main>
       </div>
 
-      {/* 底部导航栏 - 增加工人选项卡，总计5个 */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-slate-100 px-1 py-1 flex items-center justify-around z-50 shadow-[0_-2px_15px_rgba(0,0,0,0.05)]">
+      {/* 底部导航栏 */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-slate-100 px-0.5 py-1 flex items-center justify-around z-50 shadow-[0_-2px_15px_rgba(0,0,0,0.05)]">
         <NavItem to="/" icon={LayoutDashboard} label="首页" active={location.pathname === '/'} />
+        <NavItem to="/anchors" icon={Tv} label="主播" active={location.pathname === '/anchors'} />
+        <NavItem to="/anchor-salary" icon={DollarSign} label="工资" active={location.pathname === '/anchor-salary'} />
         <NavItem to="/orders" icon={ShoppingCart} label="订单" active={location.pathname === '/orders'} />
         <NavItem to="/finance" icon={Wallet} label="财务" active={location.pathname === '/finance'} />
-        <NavItem to="/inventory" icon={Package} label="仓库" active={location.pathname === '/inventory'} />
-        <NavItem to="/workers" icon={Users} label="工人" active={location.pathname === '/workers'} />
+        
       </nav>
     </div>
   );

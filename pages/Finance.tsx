@@ -7,10 +7,12 @@ import { Wallet, TrendingUp, TrendingDown, Plus, X, Landmark, ArrowDownRight, Ar
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // 渠道选项和颜色映射
-const platformOptions = ['小红书1店', '小红书2店', '微信', '个人售卖1店', '个人售卖2店', '闲鱼'];
+const platformOptions = ['小红书1店', '小红书2店', '抖音1店', '抖音2店', '微信', '个人售卖1店', '个人售卖2店', '闲鱼'];
 const platformColors: { [key: string]: string } = {
   '小红书1店': '#ff6b6b',
   '小红书2店': '#ee5a6f',
+  '抖音1店': '#fe2c55',
+  '抖音2店': '#00c2ff',
   '微信': '#07c160',
   '个人售卖1店': '#4dabf7',
   '个人售卖2店': '#748ffc',
